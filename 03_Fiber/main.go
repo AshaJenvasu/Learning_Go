@@ -1,9 +1,8 @@
 package main
 
 import (
-	"strconv"
-
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/template/html/v2"
 )
 
 type Book struct {
@@ -12,10 +11,14 @@ type Book struct {
 	Author string `json:"author"`
 }
 
+// Slice (ตู้หนังสือ) เก็บหนังสือได้หลายเล่ม เป็นร้อยเป็นพันเล่ม
 var books []Book 
 
 func main() {
-app:= fiber.New()
+	engine := html.New("./views", ".html")
+app:= fiber.New(fiber.Config{
+	Views: engine,
+} )
 
 books = append(books, Book{ID: 1, Title: "Nanatsu no Taizai", Author: "Nakaba Suzuki"})
 books = append(books, Book{ID: 2, Title: "One Piece", Author: "Eichiro Oda"})
@@ -26,76 +29,31 @@ app.Post("/books", createBook)
 app.Put("/books/:id", updateBook)
 app.Delete("/books/:id", deleteBook)
 
+app.Post("/upload", uploadFile)
+app.Get("test-html", testHTML)
+
 app.Listen(":8080")
 }
 
-func getBooks(c *fiber.Ctx) error {
-  return c.JSON(books)
+func uploadFile( c *fiber.Ctx) error {
+	file, err := c.FormFile("image")
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	err = c.SaveFile(
+		file, "./uploads/" + file.Filename)
+		
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.SendString("File upload complete!")
 }
 
-func getBookById(c *fiber.Ctx) error {
-  bookId, err := strconv.Atoi(c.Params("id"))
-
-  if err != nil {
-    return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-  }
-
-  for _, book := range books {
-    if book.ID == bookId {
-      return c.JSON(book)
-    }
-  }
-  
-  return c.Status(fiber.StatusNotFound).SendString("Not Found eiei")
-}
-
-func createBook(c *fiber.Ctx) error {
-  book := new(Book)
- if err := c.BodyParser(book) ; err != nil{
-  return c.Status(fiber.StatusBadRequest).SendString(err.Error())
- }
-
- books = append(books, *book)
-  return c.JSON(book)
-}
-
-func updateBook(c *fiber.Ctx) error {
-  bookId, err := strconv.Atoi(c.Params("id"))
-
-  if err != nil {
-    return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-  }
-
-  bookUpdate := new(Book)
-   if err := c.BodyParser(bookUpdate) ; err != nil{
-  return c.Status(fiber.StatusBadRequest).SendString(err.Error())
- }
-
-   for i:= 0; i<len(books); i++ {
-    if books[i].ID == bookId {
-      books[i].Title = bookUpdate.Title
-      books[i].Author = bookUpdate.Author
-      return c.JSON(books[i])
-    }
-  }
-  
-  return c.Status(fiber.StatusNotFound).SendString("Not Found eiei")
-}
-
-func deleteBook(c *fiber.Ctx) error {
-  bookId, err := strconv.Atoi(c.Params("id"))
-
-  if err != nil {
-    return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-  }
-
-  for i:= 0; i<len(books); i++ {
-    if books[i].ID == bookId {
-      books = append(books[:i], books[i+1:]...)
-      return c.SendStatus(fiber.StatusNoContent)
-    }
-  }
-  
-  return c.Status(fiber.StatusNotFound).SendString("Not Found eiei")
-
+func testHTML( c *fiber.Ctx) error {
+	  return c.Render("index", fiber.Map{
+        "Title": "Hello, World!",
+        "Name": "Asha",
+    })
 }
